@@ -50,9 +50,18 @@ import org.infinispan.query.dsl.Query;
  * org.infinispan.Cache} cache, which allows specifying time values with any granularity (as defined by {@link
  * TimeUnit}), HotRod only supports seconds as time units. If a different time unit is used instead, HotRod will
  * transparently convert it to seconds, using {@link java.util.concurrent.TimeUnit#toSeconds(long)} method. This might
- * result in loss of precision for values specified as nanos or milliseconds. <br/> Another fundamental difference is in
+ * result in loss of precision for values specified as nanos or milliseconds. <br/>
+ * Also, though lifespan and maxIdle can be specified as {@code long}, HotRod server handles it as {@code int} internally.
+ * So, the maximum value of lifespan and maxIdle are 2147483647 (= {@link java.lang.Integer#MAX_VALUE}) seconds.<br/>
+ *
+ * <b>Note on the expiration behavior change for the lifespan value bigger than 30 days:</b>
+ * Until the old Infinispan versions (9.4 or before), there was another fundamental difference in
  * the case of lifespan (naturally does NOT apply for max idle): If number of seconds is bigger than 30 days, this
- * number of seconds is treated as UNIX time and so, represents the number of seconds since 1/1/1970. <br/>
+ * number of seconds is treated as UNIX time and so, represents the number of seconds since 1/1/1970. This was
+ * inspired by <a href="https://github.com/memcached/memcached/wiki/Programming#expiration">Memcached</a>.
+ * This behavior is disabled by default since Infinispan 10. You can set the system property
+ * {@code infinispan.hotrod.lifespan.30days.unixtime-expiry} to {@code true} to restore the backward compatible behavior.
+ * (e.g. add {@code -Dinfinispan.hotrod.lifespan.30days.unixtime-expiry=true} to Java VM option.) <br/>
  *
  * <b>Note on default expiration values:</b> Due to limitations on the first
  * version of the protocol, it's not possible for clients to rely on default

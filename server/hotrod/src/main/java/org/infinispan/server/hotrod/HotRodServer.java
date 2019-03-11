@@ -111,6 +111,7 @@ public class HotRodServer extends AbstractProtocolServer<HotRodServerConfigurati
    private static final Log log = LogFactory.getLog(HotRodServer.class, Log.class);
 
    private static final long MILLISECONDS_IN_30_DAYS = TimeUnit.DAYS.toMillis(30);
+   private static final boolean ENABLE_UNIX_TIME_EXPIRY = Boolean.getBoolean("infinispan.hotrod.lifespan.30days.unixtime-expiry");
 
    public static final int LISTENERS_CHECK_INTERVAL = 10;
 
@@ -597,17 +598,22 @@ public class HotRodServer extends AbstractProtocolServer<HotRodServerConfigurati
    }
 
    /**
-    * Transforms lifespan pass as seconds into milliseconds following this rule (inspired by Memcached):
+    * Transforms lifespan pass with TimeUnit into milliseconds
+    *
+    * For the backward compatibility, when the system property "infinispan.hotrod.lifespan.30days.unixtime-expiry" is
+    * set to true, the following this rule is applied (inspired by Memcached):
     * <p>
     * If lifespan is bigger than number of seconds in 30 days, then it is considered unix time. After converting it to
     * milliseconds, we subtract the current time in and the result is returned.
-    * <p>
-    * Otherwise it's just considered number of seconds from now and it's returned in milliseconds unit.
+    *
+    * @param duration lifespan passed with unit
+    * @param unit TimeUnit for the lifespan duration parameter
+    * @return lifespan in milliseconds
     */
    private static long toMillis(long duration, TimeUnitValue unit) {
       if (duration > 0) {
          long milliseconds = unit.toTimeUnit().toMillis(duration);
-         if (milliseconds > MILLISECONDS_IN_30_DAYS) {
+         if (ENABLE_UNIX_TIME_EXPIRY && milliseconds > MILLISECONDS_IN_30_DAYS) {
             long unixTimeExpiry = milliseconds - System.currentTimeMillis();
             return unixTimeExpiry < 0 ? 0 : unixTimeExpiry;
          } else {
