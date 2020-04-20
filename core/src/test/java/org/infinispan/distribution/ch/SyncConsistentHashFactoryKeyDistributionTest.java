@@ -43,18 +43,21 @@ import org.testng.annotations.Test;
 public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfinispanTest {
 
    // numbers of nodes to test
-   public static final int[] NUM_NODES = {6};
+   // public static final int[] NUM_NODES = {20};
+   public static final int[] NUM_NODES = {22};
    // numbers of virtual nodes to test
-   public static final int[] NUM_SEGMENTS = {200, 400, 800, 1600};
+   // public static final int[] NUM_SEGMENTS = {200, 400, 800, 1600, 2000};
+   public static final int[] NUM_SEGMENTS = {200, 220, 400, 440, 600, 660, 720, 800, 880, 1000, 1100};
    // number of key owners
    public static final int NUM_OWNERS = 2;
 
    // controls precision + duration of test
    public static final int LOOPS = 2000;
+
    // confidence intervals to print for any owner
-   public static final double[] INTERVALS = { 0.9, 1.10, 1.15 };
+   public static final double[] INTERVALS = { 0.6, 0.7, 0.8, 0.9, 1.10, 1.15, 1.30, 1.50 };
    // confidence intervals to print for primary owner
-   public static final double[] INTERVALS_PRIMARY = { 0.9, 1.10, 1.15 };
+   public static final double[] INTERVALS_PRIMARY = { 0.6, 0.7, 0.8, 0.9, 1.10, 1.15, 1.30, 1.50 };
    // percentiles to print
    public static final double[] PERCENTILES = { .999 };
 
@@ -93,10 +96,31 @@ public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfini
       }
    }
 
+   public void testRebalanceDistribution() {
+      for (int nn : NUM_NODES) {
+         Map<String, Map<Integer, String>> metrics = new TreeMap<String, Map<Integer, String>>();
+         for (int ns : NUM_SEGMENTS) {
+            for (Map.Entry<String, String> entry : computeMetricsAfterRebalance(ns, NUM_OWNERS, nn).entrySet()) {
+               String metricName = entry.getKey();
+               String metricValue = entry.getValue();
+               Map<Integer, String> metric = metrics.get(metricName);
+               if (metric == null) {
+                  metric = new HashMap<Integer, String>();
+                  metrics.put(metricName, metric);
+               }
+               metric.put(ns, metricValue);
+            }
+         }
+
+         printMetrics(nn, metrics);
+      }
+   }
+
+
    private void printMetrics(int nn, Map<String, Map<Integer, String>> metrics) {
       // print the header
       System.out.printf("Distribution for %3d nodes (relative to the average)\n===\n", nn);
-      System.out.printf("%30s = ", "Segments");
+      System.out.printf("%35s = ", "Segments");
       for (int i = 0; i < NUM_SEGMENTS.length; i++) {
          System.out.printf("%7d", NUM_SEGMENTS[i]);
       }
@@ -107,7 +131,7 @@ public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfini
          String metricName = entry.getKey();
          Map<Integer, String> metricValues = entry.getValue();
 
-         System.out.printf("%30s = ", metricName);
+         System.out.printf("%35s = ", metricName);
          for (int i = 0; i < NUM_SEGMENTS.length; i++) {
             System.out.print(metricValues.get(NUM_SEGMENTS[i]));
          }
@@ -116,11 +140,12 @@ public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfini
       System.out.println();
    }
 
-   private Map<String, String> computeMetrics(int numSegments, int numOwners, int numNodes) {
+   protected Map<String, String> computeMetrics(int numSegments, int numOwners, int numNodes) {
       List<Address> members = createAddresses(numNodes);
       Map<String, String> metrics = new HashMap<String, String>();
       long[] distribution = new long[LOOPS * numNodes];
       long[] distributionPrimary = new long[LOOPS * numNodes];
+      double[] largestRatio = new double[LOOPS];
       int distIndex = 0;
       for (int i = 0; i < LOOPS; i++) {
          DefaultConsistentHash ch = createConsistentHash(numSegments, numOwners, members);
@@ -131,12 +156,59 @@ public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfini
             distributionPrimary[distIndex] = stats.getPrimaryOwned(node);
             distIndex++;
          }
+         largestRatio[i] = getSegmentsPerNodesMinMaxRatio(ch);
       }
       Arrays.sort(distribution);
       Arrays.sort(distributionPrimary);
+      Arrays.sort(largestRatio);
 
       addMetrics(metrics, "Any owner:", numSegments, numOwners, numNodes, distribution, INTERVALS);
       addMetrics(metrics, "Primary:", numSegments, 1, numNodes, distributionPrimary, INTERVALS_PRIMARY);
+      addDoubleMetric(metrics, "Segments per node - max/min ratio", largestRatio[largestRatio.length -1]);
+      return metrics;
+   }
+
+   protected Map<String, String> computeMetricsAfterRebalance(int numSegments, int numOwners, int numNodes) {
+      List<Address> members = createAddresses(numNodes);
+      Map<String, String> metrics = new HashMap<String, String>();
+      long[] distribution = new long[LOOPS * numNodes];
+      long[] distributionPrimary = new long[LOOPS * numNodes];
+      double[] largestRatio = new double[LOOPS];
+      int distIndex = 0;
+
+      MurmurHash3 hash = MurmurHash3.getInstance();
+      ConsistentHashFactory<DefaultConsistentHash> chf = new SyncConsistentHashFactory();
+      DefaultConsistentHash ch = chf.create(hash, numOwners, numSegments, members, null);
+
+      // loop leave/join and rebalance
+      for (int i = 0; i < LOOPS; i++) {
+         // leave
+         IndexedJGroupsAddress leaver = (IndexedJGroupsAddress)members.remove(0);
+         int leaverNodeIndex = leaver.getNodeIndex();
+         DefaultConsistentHash rebalancedCH = chf.updateMembers(ch, members, null);
+         ch = chf.rebalance(rebalancedCH);
+         // join
+         Address joiner = createSingleAddresses(leaverNodeIndex);
+         members.add(joiner);
+         rebalancedCH = chf.updateMembers(ch, members, null);
+         ch = chf.rebalance(rebalancedCH);
+         // stats after rebalance
+         OwnershipStatistics stats = new OwnershipStatistics(ch, ch.getMembers());
+         assertEquals(numSegments * numOwners, stats.sumOwned());
+         for (Address node : ch.getMembers()) {
+            distribution[distIndex] = stats.getOwned(node);
+            distributionPrimary[distIndex] = stats.getPrimaryOwned(node);
+            distIndex++;
+         }
+         largestRatio[i] = getSegmentsPerNodesMinMaxRatio(ch);
+      }
+      Arrays.sort(distribution);
+      Arrays.sort(distributionPrimary);
+      Arrays.sort(largestRatio);
+
+      addMetrics(metrics, "Any owner:", numSegments, numOwners, numNodes, distribution, INTERVALS);
+      addMetrics(metrics, "Primary:", numSegments, 1, numNodes, distributionPrimary, INTERVALS_PRIMARY);
+      addDoubleMetric(metrics, "Segments per node - max/min ratio", largestRatio[largestRatio.length -1]);
       return metrics;
    }
 
@@ -198,6 +270,25 @@ public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfini
    private void addPercentageMetric(Map<String, String> metrics, String name, double value) {
       metrics.put(name, String.format("%6.2f%%", value * 100));
    }
+
+   private Address createSingleAddresses(int i) {
+      return new IndexedJGroupsAddress(UUID.randomUUID(), i);
+   }
+
+   private double getSegmentsPerNodesMinMaxRatio(DefaultConsistentHash ch) {
+      int max = 0;
+      int min = Integer.MAX_VALUE;
+      for (Address addr : ch.getMembers()) {
+         int num = ch.getSegmentsForOwner(addr).size();
+         max = Math.max(max, num);
+         min = Math.min(min, num);
+      }
+      double d = ((double) max) / min;
+      // String result = String.format("min=%d, max=%d, ch=%s, d=%f", min, max, ch, d);
+      // System.out.println("segment result = " + result);
+      return d;
+   }
+
 }
 
 /**
@@ -209,5 +300,14 @@ class IndexedJGroupsAddress extends JGroupsAddress {
    IndexedJGroupsAddress(org.jgroups.Address address, int nodeIndex) {
       super(address);
       this.nodeIndex = nodeIndex;
+   }
+
+   public int getNodeIndex() {
+      return nodeIndex;
+   }
+
+   @Override
+   public String toString() {
+      return Integer.toString(nodeIndex);
    }
 }
