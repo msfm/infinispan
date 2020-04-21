@@ -117,7 +117,7 @@ public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfini
    }
 
 
-   private void printMetrics(int nn, Map<String, Map<Integer, String>> metrics) {
+   protected void printMetrics(int nn, Map<String, Map<Integer, String>> metrics) {
       // print the header
       System.out.printf("Distribution for %3d nodes (relative to the average)\n===\n", nn);
       System.out.printf("%35s = ", "Segments");
@@ -212,7 +212,7 @@ public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfini
       return metrics;
    }
 
-   private void addMetrics(Map<String, String> metrics, String prefix, int numSegments, int numOwners,
+   protected void addMetrics(Map<String, String> metrics, String prefix, int numSegments, int numOwners,
                            int numNodes, long[] distribution, double[] intervals) {
       double mean = 0;
       long sum = 0;
@@ -263,19 +263,19 @@ public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfini
       }
    }
 
-   private void addDoubleMetric(Map<String, String> metrics, String name, double value) {
+   protected void addDoubleMetric(Map<String, String> metrics, String name, double value) {
       metrics.put(name, String.format("%7.3f", value));
    }
 
-   private void addPercentageMetric(Map<String, String> metrics, String name, double value) {
+   protected void addPercentageMetric(Map<String, String> metrics, String name, double value) {
       metrics.put(name, String.format("%6.2f%%", value * 100));
    }
 
-   private Address createSingleAddresses(int i) {
+   protected Address createSingleAddresses(int i) {
       return new IndexedJGroupsAddress(UUID.randomUUID(), i);
    }
 
-   private double getSegmentsPerNodesMinMaxRatio(DefaultConsistentHash ch) {
+   protected double getSegmentsPerNodesMinMaxRatio(DefaultConsistentHash ch) {
       int max = 0;
       int min = Integer.MAX_VALUE;
       for (Address addr : ch.getMembers()) {
