@@ -182,9 +182,9 @@ public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfini
       double[] largestRatio = new double[LOOPS];
       int distIndex = 0;
 
-      MurmurHash3 hash = MurmurHash3.getInstance();
+      // MurmurHash3 hash = MurmurHash3.getInstance();
       ConsistentHashFactory<DefaultConsistentHash> chf = new SyncConsistentHashFactory();
-      DefaultConsistentHash ch = chf.create(hash, numOwners, numSegments, members, null);
+      DefaultConsistentHash ch = chf.create(numOwners, numSegments, members, null);
 
       // loop leave/join and rebalance
       for (int i = 0; i < LOOPS; i++) {
