@@ -43,10 +43,16 @@ import org.testng.annotations.Test;
 public class SyncConsistentHashFactoryKeyDistributionTest extends AbstractInfinispanTest {
 
    // numbers of nodes to test
+   // public static final int[] NUM_NODES = {11};
+   // public static final int[] NUM_NODES = {17};
    // public static final int[] NUM_NODES = {20};
-   public static final int[] NUM_NODES = {22};
+   // public static final int[] NUM_NODES = {22};
+   public static final int[] NUM_NODES = {20, 22};
+   // public static final int[] NUM_NODES = {30};
+   // public static final int[] NUM_NODES = {33};
    // numbers of virtual nodes to test
    // public static final int[] NUM_SEGMENTS = {200, 400, 800, 1600, 2000};
+   // public static final int[] NUM_SEGMENTS = {170, 200, 300, 340, 680, 850, 1000};
    public static final int[] NUM_SEGMENTS = {200, 220, 400, 440, 600, 660, 720, 800, 880, 1000, 1100};
    // number of key owners
    public static final int NUM_OWNERS = 2;
