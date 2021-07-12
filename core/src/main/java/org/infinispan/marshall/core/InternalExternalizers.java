@@ -243,7 +243,7 @@ final class InternalExternalizers {
       addInternalExternalizer(new CacheIntermediatePublisher.ReducerExternalizer(), exts);
       addInternalExternalizer(new ClassExternalizer(gcr.getGlobalConfiguration().classLoader()), exts);
       addInternalExternalizer(new ClusterCacheStatsImpl.DistributedCacheStatsCallableExternalizer(), exts);
-      addInternalExternalizer(ThrowableExternalizer.INSTANCE, exts);
+      addInternalExternalizer(new ThrowableExternalizer(gcr.getGlobalConfiguration().classLoader()), exts);
       addInternalExternalizer(new ImmutableListCopy.Externalizer(), exts);
       addInternalExternalizer(EnumExternalizer.INSTANCE, exts);
       addInternalExternalizer(new CacheBiConsumers.Externalizer(), exts);

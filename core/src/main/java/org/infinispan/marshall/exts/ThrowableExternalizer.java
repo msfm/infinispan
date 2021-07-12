@@ -72,8 +72,13 @@ public class ThrowableExternalizer implements AdvancedExternalizer<Throwable> {
    private static final short USER_RAISED_FUNCTIONAL = 24;
    private static final short WRITE_SKEW = 25;
    private final Map<Class<?>, Short> numbers = new HashMap<>(24);
+   private final ClassLoader classloader;
 
    public ThrowableExternalizer() {
+      this(null);
+   }
+
+   public ThrowableExternalizer(ClassLoader classloader) {
       numbers.put(AllOwnersLostException.class, ALL_OWNERS_LOST);
       numbers.put(AvailabilityException.class, AVAILABILITY);
       numbers.put(CacheConfigurationException.class, CACHE_CONFIGURATION);
@@ -99,6 +104,7 @@ public class ThrowableExternalizer implements AdvancedExternalizer<Throwable> {
       numbers.put(UserRaisedFunctionalException.class, USER_RAISED_FUNCTIONAL);
       numbers.put(WriteSkewException.class, WRITE_SKEW);
       numbers.put(OutdatedTopologyException.class, OUTDATED_TOPOLOGY);
+      this.classloader = classloader != null ? classloader : this.getClass().getClassLoader();
    }
 
    @Override
@@ -275,7 +281,7 @@ public class ThrowableExternalizer implements AdvancedExternalizer<Throwable> {
       String msg = MarshallUtil.unmarshallString(in);
       Throwable t = (Throwable) in.readObject();
       try {
-         Class<?> clazz = Class.forName(impl);
+         Class<?> clazz = Class.forName(impl, true, classloader);
          if (t == null && msg == null) {
             return (Throwable) clazz.getConstructor().newInstance(new Object[]{});
          } else if (t == null) {

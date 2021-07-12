@@ -414,7 +414,7 @@ public class GlobalMarshaller implements StreamingMarshaller {
       if (ext != null)
          return ext;
 
-      return o instanceof Throwable ? ThrowableExternalizer.INSTANCE : null;
+      return o instanceof Throwable ? new ThrowableExternalizer(classLoader): null;
    }
 
    AdvancedExternalizer getExternalizer(ClassToExternalizerMap class2ExternalizerMap, Class<?> clazz) {
